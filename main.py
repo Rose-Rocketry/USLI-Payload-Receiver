@@ -26,6 +26,7 @@ async def process_packets(socket):
         buf = bytearray(0)
         while b'.STOPSTOPSTOPSTOP' not in buf[-17:]:
             buf.append(ser.read())
+            asyncio.sleep(0.0001)
 
         try:
             data = pickle.loads(buf)
