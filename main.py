@@ -24,7 +24,7 @@ messages_received = 0
 async def process_packets(socket):
     while True:
         buf = bytearray(0)
-        while b'.' not in buf:
+        while b'.STOPSTOPSTOPSTOP' not in buf[-17:]:
             buf.append(ser.read())
 
         try:
