@@ -13,32 +13,53 @@ Websockets: https://websockets.readthedocs.io/en/stable/reference/client.html
 
 from pickle import UnpicklingError
 import pickle
+import json
 import serial
 import websockets
 import asyncio
 import concurrent.futures
+import logging
 
 ser = serial.Serial('/dev/ttyUSB0', baudrate=115200,timeout=0.5)
-messages_received = 0
 
 async def process_packets(socket):
+    print("Looping")
     while True:
-        buf = bytearray(0)
-        while b'.STOPSTOPSTOPSTOP' not in buf[-17:]:
-            buf.append(ser.read())
-            asyncio.sleep(0.0001)
+        packet = None
+        buf = bytes()
+        while b'.STOPSTOPSTOPSTOP' not in buf[-17:] :
+            item = ser.read()
+            if b'' == item:
+                continue
+            buf += item
 
+        print(len(buf))
+        print(buf)
         try:
-            data = pickle.loads(buf)
-            await socket.send({"status":"successful","id":messages_received,"data":data})
-        except UnpicklingError:
-            {"status":"packet lost", "id": messages_received}
-        messages_received += 1
+            print("Data")
+            data = pickle.loads(buf[:-16])
+            logging.info("Recieved Packet")
+            await socket.send(json.dumps({"status":"successful","data":data}))
+            print("succ")
+        except UnpicklingError as e:
+            logging.info("Failed to read packet")
+            await socket.send(json.dumps({"status":"packet lost", "error":str(e)}))
+        except Exception as e:
+            logging.info("Failed to read packet")
+            print
+            await socket.send(json.dumps({"status":"packet lost", "error":str(e)}))
+        await asyncio.sleep(0)
 
 async def main():
     async for socket in websockets.connect("ws://localhost:8000/ws/telemetry/PiLoad/send"):
         try:
-            await process_packets( socket)
+            await process_packets(socket)
         except websockets.ConnectionClosed:
             #automatically reconnects
+            logging.warning("Could not connect to websocket.")
+            print("failed")
             continue
+
+loop = asyncio.get_event_loop()
+loop.create_task(main())
+loop.run_forever()
